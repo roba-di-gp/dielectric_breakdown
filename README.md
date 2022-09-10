@@ -9,3 +9,11 @@ simula su reticolo la crescita di curve di rottura dielettrica (DBM model)
 
 #hausdorff
 stima tramite fit logaritmico la dimensione frattale di curve su reticolo 
+
+#db.f
+Versione in fortran della medesima simulazione, con aggiunta della possibilità di creare un'animazione
+
+#plotdb.py
+File python per i plot delle simulazioni del codice fortran
+
+![](dielectric_breakdown.gif)
