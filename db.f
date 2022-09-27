@@ -3,6 +3,7 @@
       integer, dimension(:,:), allocatable :: ground
       real*8, dimension(:), allocatable ::  pot
       integer, dimension(:), allocatable :: xx, yy, prox
+      real*8 :: tau, w
       common eta, n, nn
       
 C========================================================================
@@ -17,16 +18,18 @@ C========================================================================
       call cpu_time(start)
       call ranstart
 	
-      open(2, file='datidb.dat',status='unknown') !file dove salvare i risultati
+      open(2, file='datidb1.dat',status='unknown') !file dove salvare i risultati
       
-      n = 200                     !dimesione griglia
+      n = 500                     !dimesione griglia
       nn = n**2                   !area della griglia  
       i_anim = 0                  !parametro per l'animalzione
-      i_time = 200                !tempo dell'animazione
-      i_delay = 10                !iterazioni saltate
+      i_time = 500                !tempo dell'animazione
+      i_delay = 30                !iterazioni saltate
       npoints = i_time*i_delay    !tempo totale
       eta = 1                     !parametro del modello
       m = (n+1)/2                 !punto centrale della griglia
+      w = 1.99                    !parametro di rilassamento
+      tau = 1E-04                 !tolleranza per convergenza laplace
       
       !scrivo su file le quantita importanti per il plot
       write(2,*) n
@@ -45,12 +48,14 @@ C========================================================================
               phi(i, j) = 1.0
           enddo
       enddo
-      
+           
       !seme della routtura
       ground(m, m) = 0
       
+      !print*, ground
+      
       !rislouzione equazione di laplace una prima volta
-      call solve(3000, ground, phi)
+      call solve(ground, phi, w, tau)
       
       do iter1 = 1, i_time
           do iter2 = 1, i_delay
@@ -84,7 +89,7 @@ C=================================================
                  
               ground(xx(ic), yy(ic)) = 0    !aggiungo un punto alla curva
           
-              call solve(100, ground, phi)  !rislovo con le nuove condizioni al bordo
+              call solve(ground, phi, w, tau)  !rislovo con le nuove condizioni al bordo
           
               deallocate(xx, yy, prox, pot)
           enddo
@@ -120,10 +125,11 @@ C=================================================
       
 C======================================================================
 
-      subroutine solve(iters, ground, phi)
+      subroutine solve(ground, phi, w, tau)
       common eta, n, nn
       real*8, dimension(n,n) :: phi
       integer, dimension(n,n) :: ground
+      real*8 :: xmean_U0, xmean_U, conv, w, tau
       
       !condizioni al bordo
       do i = 2, n-1
@@ -132,20 +138,43 @@ C======================================================================
           enddo
       enddo
       
-      !risoluzione tramite teorma del valor medio
-      do k = 1, iters
+      conv = 1
+      xmean_U0 = 0
+      
+      do i = 1, n
+          do j = 1, n
+              xmean_U0 = xmean_U0 + phi(i, j)
+          enddo
+      enddo
+      xmean_U0 = xmean_U0/float(n*n)
+      !niter = 0
+      
+      do while (conv > tau)
           do i = 2, n-1
               do j = 2, n-1
-                  force = phi(i, j+1) + phi(i, j-1) +
-     &                    phi(i+1, j) + phi(i-1, j)
-     
                   if (ground(i, j)==0) then
                       phi(i, j)=0
                   else 
-                      phi(i, j) = force/4.0
+                      force = phi(i, j+1) + phi(i, j-1) +
+     &                        phi(i+1, j) + phi(i-1, j)
+                      phi(i, j) = w*0.25*force + (1-w)*phi(i, j)
                   endif
               enddo
           enddo
+          
+          xmean_U=0
+          do i = 1, n
+              do j = 1, n
+                  xmean_U = xmean_U + phi(i, j)
+              enddo
+          enddo
+          
+          xmean_U = xmean_U/float(n*n)
+          conv = dabs(xmean_U-xmean_U0)
+          xmean_U0 = xmean_U
+    
+          !niter = niter + 1
+          
       enddo
 
       return
